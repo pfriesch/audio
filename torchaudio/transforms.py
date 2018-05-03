@@ -287,6 +287,24 @@ class SPEC2DB(object):
         return spec_db if is_variable else spec_db.data
 
 
+class DB2SPEC(object):
+    """Turns a spectrogram from the decibel scale to the power/amplitude scale.
+
+    Args:
+        stype (str): scale of output spectrogram ("power" or "magnitude").  The
+            power being the elementwise square of the magnitude. default: "power"
+    """
+
+    def __init__(self, stype="power"):
+        self.stype = stype
+        self.multiplier = 0.1 if stype == "power" else 0.05
+
+    def __call__(self, spec_db):
+        spec_db, is_variable = _check_is_variable(spec_db)
+        spec = torch.pow(10, spec_db * self.multiplier)
+        return spec if is_variable else spec.data
+
+
 class MEL2(object):
     """Create MEL Spectrograms from a raw audio signal using the stft
        function in PyTorch.  Hopefully this solves the speed issue of using
