@@ -2,6 +2,7 @@ from __future__ import division, print_function
 import torch
 from torch.autograd import Variable
 import numpy as np
+
 try:
     import librosa
 except ImportError:
@@ -66,7 +67,7 @@ class Scale(object):
 
     """
 
-    def __init__(self, factor=2**31):
+    def __init__(self, factor=2 ** 31):
         self.factor = factor
 
     def __call__(self, tensor):
@@ -182,6 +183,7 @@ class SPECTROGRAM(object):
         wkwargs (dict, optional): arguments for window function
 
     """
+
     def __init__(self, sr=16000, ws=400, hop=None, n_fft=None,
                  pad=0, window=torch.hann_window, wkwargs=None):
         if isinstance(window, Variable):
@@ -229,6 +231,7 @@ class F2M(object):
         f_max (float, optional): maximum frequency. default: sr // 2
         f_min (float): minimum frequency. default: 0
     """
+
     def __init__(self, n_mels=40, sr=16000, f_max=None, f_min=0.):
         self.n_mels = n_mels
         self.sr = sr
@@ -244,7 +247,7 @@ class F2M(object):
         m_max = 2595 * np.log10(1. + (self.f_max / 700))
 
         m_pts = torch.linspace(m_min, m_max, self.n_mels + 2)
-        f_pts = (700 * (10**(m_pts / 2595) - 1))
+        f_pts = (700 * (10 ** (m_pts / 2595) - 1))
 
         bins = torch.floor(((n_fft - 1) * 2) * f_pts / self.sr).long()
 
@@ -259,7 +262,8 @@ class F2M(object):
             if f_m != f_m_plus:
                 fb[f_m:f_m_plus, m - 1] = (f_m_plus - torch.arange(f_m, f_m_plus)) / (f_m_plus - f_m)
 
-        fb = Variable(fb)
+        fb = torch.tensor(fb).to(spec_f.device)
+
         spec_m = torch.matmul(spec_f, fb)  # (c, l, n_fft) dot (n_fft, n_mels) -> (c, l, n_mels)
         return spec_m if is_variable else spec_m.data
 
@@ -273,13 +277,13 @@ class SPEC2DB(object):
         top_db (float, optional): minimum negative cut-off in decibels.  A reasonable number
             is -80.
     """
+
     def __init__(self, stype="power", top_db=None):
         self.stype = stype
         self.top_db = -top_db if top_db > 0 else top_db
         self.multiplier = 10. if stype == "power" else 20.
 
     def __call__(self, spec):
-
         spec, is_variable = _check_is_variable(spec)
         spec_db = self.multiplier * _tlog10(spec / spec.max())  # power -> dB
         if self.top_db is not None:
@@ -330,6 +334,7 @@ class MEL2(object):
         >>> sig = transforms.LC2CL()(sig)  # (n, c) -> (c, n)
         >>> spec_mel = transforms.MEL2(sr)(sig)  # (c, l, m)
     """
+
     def __init__(self, sr=16000, ws=400, hop=None, n_fft=None,
                  pad=0, n_mels=40, window=torch.hann_window, wkwargs=None):
         self.window = window(ws) if wkwargs is None else window(ws, **wkwargs)
@@ -358,6 +363,7 @@ class MEL2(object):
         """
 
         sig, is_variable = _check_is_variable(sig)
+        self.window = self.window.to(sig.device)
 
         transforms = Compose([
             SPECTROGRAM(self.sr, self.ws, self.hop, self.n_fft,
